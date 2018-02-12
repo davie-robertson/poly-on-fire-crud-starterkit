@@ -1,0 +1,172 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="shared-styles.html">
+<!-- make sure you add the related dependencies to bower.json .. -->
+<link rel="import" href="../bower_components/polymerfire/polymerfire.html"/>
+<link rel="import" href="../bower_components/polymerfire/firebase-app.html"/>
+<link rel="import" href="../bower_components/polymerfire/firebase-query.html"/>
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+
+<dom-module id="my-view1">
+  <template>
+    <style include="shared-styles">
+      :host {
+        display: block;
+
+        padding: 10px;
+      }
+    </style>
+
+  <!--
+
+  cdsf/product has all of this with form validation, beautiful controls, lookups
+  to another table, etc but it's
+
+  - a lot more complex
+  - written in polymer1 and updating all of the controls has dependency conflicts
+  - would require updating a ton of dependencies - complexity in other files
+
+  -->
+
+  <firebase-app auth-domain="df-lab.firebaseapp.com"
+                database-url="https://df-lab.firebaseio.com/"
+                api-key="AIzaSyBse0Wxe7vwqHrQvzxfx2c9Ib4k143C7cQ">
+  <firebase-query id="queryThings" path="/Things" data="{{Things}}">
+  </firebase-query>
+    <div class="card">
+      <div class="circle">1</div>
+      <h1>Thing - CRUD operations</h1>
+      <p>This Polymer starter-kit UI page has been hijacked to demo very basic CRUD operations.</p>
+      <p>The object in question is cleverly named a 'thing'</p>
+      <p>It was tempting to provide a more complete version with visual formatting and controls, lookups to another table, form validation etc, all of which I have in cdsf/products. But all that detail would obfuscate the basic crud operations which are complex enough for one tutorial project.</p>
+      <p>The functionality of this project depends on wide open database rules for /Things so that is not recommended in real life. Database rules are not covered in this tutorial</p>
+
+    </div>
+    <div class="card">
+      <div class="Thing">
+        <h3 id="addTitle">Add Thing</h3>
+        <h3 id="updateTitle" hidden>Update Thing</h3>
+        <input id="key" type="text" name="key" hidden/>
+        <form action="/" method="get" id="addupdate">
+          Name:<input id="name" type="text" name="name"><br>
+          Description:<input id="description" type="text" name="description"><br>
+            <button id="add" on-click="add" type="button">Add</button>
+            <button id="update" on-click="update" type="button" hidden>Update</button>
+            <button id="clear" on-click="clear" type="button">Clear/Cancel</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="Things">
+        <ul id="Things-list">
+          <template is="dom-repeat" items="[[Things]]" as="thing">
+            <li>
+
+              <span>
+                <paper-icon-button raised thing="[[thing]]" on-tap="remove" icon="my-icons:close"></paper-icon-button>
+                <paper-icon-button raised thing="[[thing]]" on-tap="display" icon="my-icons:chevron-right"></paper-icon-button>
+                [[thing.name]] - [[thing.description]]
+              </span>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    class MyView1 extends Polymer.Element {
+      static get is() { return 'my-view1'; }
+
+      resetForm() {
+        this.$.name.value = null;
+        this.$.description.value = null;
+      }
+
+      update(e) {
+          var descrip = this.$.description.value ? this.$.description.value : "";
+          var key = this.$.key.value;
+          var thingQueryRef = this.$.queryThings.ref.child(key);
+          var postData = {
+            name: this.$.name.value,
+            description: descrip,
+            timestamp: Date.now()
+          }
+          thingQueryRef.ref.update(postData);
+          this.$.name.value = null;
+          this.$.description.value = null;
+
+          this.$.key.hidden = true;
+          this.$.add.hidden = false;
+          this.$.update.hidden = true;
+          this.$.updateTitle.hidden = true;
+          this.$.addTitle.hidden = false;
+        this.$.addupdate.reset()
+        return;
+      }
+
+      add() {
+          var postData = {
+            name: this.$.name.value,
+            description: this.$.description.value ? this.$.description.value : "",
+            timestamp: Date.now()
+          }
+          var newProductKey = this.$.queryThings.ref.push().key
+          var updates = {}
+          updates["/" + newProductKey] = postData;
+          this.$.queryThings.ref.update(updates);
+          this.$.name.value = null;
+          this.$.description.value = null;
+          this.$.key.hidden = true;
+          this.$.update.hidden = true;
+          this.$.add.hidden = false;
+          this.$.updateTitle.hidden = true;
+          this.$.addTitle.hidden = false;
+        return;
+      }
+
+      clear() {
+        this.$.addupdate.reset();
+        this.$.name.value = null;
+        this.$.description.value = null;
+        this.$.add.hidden = false;
+        this.$.update.hidden = true;
+        this.$.addTitle.hidden = false;
+        this.$.updateTitle.hidden = true;
+        return;
+      }
+
+      display(e) {
+          var key = e.currentTarget.thing.$key;
+          var thingQueryRef = this.$.queryThings.ref.child(key);
+          var aProduct = null;
+          thingQueryRef.on('value', function(snapshot) {
+            aProduct = snapshot.val();
+          });
+          this.$.key.value = key;
+          this.$.name.value = aProduct.name;
+          this.$.description.value = aProduct.description;
+          this.$.add.hidden = true;
+          this.$.update.hidden = false;
+          this.$.addTitle.hidden = true;
+          this.$.updateTitle.hidden = false;
+      }
+
+      remove(e) {
+        var key = e.currentTarget.thing.$key;
+        this.$.queryThings.ref.child(key).remove();
+      }
+    }
+
+    window.customElements.define(MyView1.is, MyView1);
+  </script>
+</dom-module>
